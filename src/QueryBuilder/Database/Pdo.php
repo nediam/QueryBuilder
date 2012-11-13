@@ -28,7 +28,7 @@ class Database_Pdo extends Database {
 	{
 		if ( ! $this->_config['use_db'])
 		{
-			return TRUE;
+			return true;
 		}
 
 		if ($this->_connection)
@@ -37,9 +37,9 @@ class Database_Pdo extends Database {
 		// Extract the connection parameters, adding required variabels
 		extract($this->_config['connection'] + array(
 			'dsn'        => '',
-			'username'   => NULL,
-			'password'   => NULL,
-			'persistent' => FALSE,
+			'username'   => null,
+			'password'   => null,
+			'persistent' => false,
 		));
 
 		// Clear the connection parameters for security
@@ -51,7 +51,7 @@ class Database_Pdo extends Database {
 		if ( ! empty($persistent))
 		{
 			// Make the connection persistent
-			$options[\PDO::ATTR_PERSISTENT] = TRUE;
+			$options[\PDO::ATTR_PERSISTENT] = true;
 		}
 
 		try
@@ -71,6 +71,17 @@ class Database_Pdo extends Database {
 			// Set the character set
 			$this->set_charset($this->_config['charset']);
 		}
+	}
+
+	public function connection($connection = null)
+	{
+		if ( ! empty($this->_config['charset']))
+		{
+			// Set the character set
+			$this->set_charset($this->_config['charset']);
+		}
+
+		return parent::connection($connection);
 	}
 
 	/**
@@ -121,7 +132,7 @@ class Database_Pdo extends Database {
 	public function disconnect()
 	{
 		// Destroy the PDO object
-		$this->_connection = NULL;
+		$this->_connection = null;
 
 		return parent::disconnect();
 	}
@@ -130,7 +141,7 @@ class Database_Pdo extends Database {
 	{
 		if ( ! $this->_config['use_db'])
 		{
-			return TRUE;
+			return true;
 		}
 
 		// Make sure the database is connected
@@ -140,11 +151,11 @@ class Database_Pdo extends Database {
 		$this->_connection->exec('SET NAMES '.$this->quote($charset));
 	}
 
-	public function query($type, $sql, $as_object = FALSE, array $params = NULL)
+	public function query($type, $sql, $as_object = false, array $params = null)
 	{
 		if ( ! $this->_config['use_db'])
 		{
-			return TRUE;
+			return true;
 		}
 
 		// Make sure the database is connected
@@ -190,7 +201,7 @@ class Database_Pdo extends Database {
 		if ($type === Database::SELECT)
 		{
 			// Convert the result into an array, as PDOStatement::rowCount is not reliable
-			if ($as_object === FALSE)
+			if ($as_object === false)
 			{
 				$result->setFetchMode(\PDO::FETCH_ASSOC);
 			}
@@ -223,7 +234,7 @@ class Database_Pdo extends Database {
 		}
 	}
 
-	public function begin($mode = NULL)
+	public function begin($mode = null)
 	{
 		// Make sure the database is connected
 		$this->_connection or $this->connect();
@@ -247,13 +258,13 @@ class Database_Pdo extends Database {
 		return $this->_connection->rollBack();
 	}
 
-	public function list_tables($like = NULL)
+	public function list_tables($like = null)
 	{
 		throw new \Exception('Database method :method is not supported by :class',
 			array(':method' => __FUNCTION__, ':class' => __CLASS__));
 	}
 
-	public function list_columns($table, $like = NULL, $add_prefix = TRUE)
+	public function list_columns($table, $like = null, $add_prefix = true)
 	{
 		throw new \Exception('Database method :method is not supported by :class',
 			array(':method' => __FUNCTION__, ':class' => __CLASS__));
