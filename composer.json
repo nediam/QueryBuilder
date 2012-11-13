@@ -1,0 +1,8 @@
+{
+	"name": "QueryBuilder/QueryBuilder",
+	"autoload":{
+		"psr-0":{
+			"QueryBuilder":"src/"
+		}
+	}
+}
