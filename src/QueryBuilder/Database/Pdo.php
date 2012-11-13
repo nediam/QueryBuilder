@@ -57,13 +57,19 @@ class Database_Pdo extends Database {
 		try
 		{
 			// Create a new PDO connection
-			$this->_connection = new PDO($dsn, $username, $password, $options);
+			$this->_connection = new \PDO($dsn, $username, $password, $options);
 		}
 		catch (PDOException $e)
 		{
 			throw new Database_Exception(':error',
 				array(':error' => $e->getMessage()),
 				$e->getCode());
+		}
+
+		if ( ! empty($this->_config['charset']))
+		{
+			// Set the character set
+			$this->set_charset($this->_config['charset']);
 		}
 	}
 
@@ -144,11 +150,13 @@ class Database_Pdo extends Database {
 		// Make sure the database is connected
 		$this->_connection or $this->connect();
 
+		/*
 		if (Kohana::$profiling)
 		{
 			// Benchmark this query for the current instance
 			$benchmark = Profiler::start("Database ({$this->_instance})", $sql);
 		}
+		*/
 
 		try
 		{
