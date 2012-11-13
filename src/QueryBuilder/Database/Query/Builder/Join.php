@@ -1,6 +1,6 @@
 <?php namespace QueryBuilder;
 /**
- * Database query builder for JOIN statements.
+ * Database query builder for JOIN statements. See [Query Builder](/database/query/builder) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query
@@ -19,12 +19,15 @@ class Database_Query_Builder_Join extends Database_Query_Builder {
 	// ON ...
 	protected $_on = array();
 
+	// USING ...
+	protected $_using = array();
+
 	/**
 	 * Creates a new JOIN statement for a table. Optionally, the type of JOIN
 	 * can be specified as the second parameter.
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  type of JOIN: INNER, RIGHT, LEFT, etc
+	 * @param   mixed   $table  column name or array($column, $alias) or object
+	 * @param   string  $type   type of JOIN: INNER, RIGHT, LEFT, etc
 	 * @return  void
 	 */
 	public function __construct($table, $type = NULL)
@@ -42,14 +45,39 @@ class Database_Query_Builder_Join extends Database_Query_Builder {
 	/**
 	 * Adds a new condition for joining.
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  logic operator
-	 * @param   mixed   column name or array($column, $alias) or object
+	 * @param   mixed   $c1  column name or array($column, $alias) or object
+	 * @param   string  $op  logic operator
+	 * @param   mixed   $c2  column name or array($column, $alias) or object
 	 * @return  $this
 	 */
 	public function on($c1, $op, $c2)
 	{
+		if ( ! empty($this->_using))
+		{
+			throw new Kohana_Exception('JOIN ... ON ... cannot be combined with JOIN ... USING ...');
+		}
+
 		$this->_on[] = array($c1, $op, $c2);
+
+		return $this;
+	}
+
+	/**
+	 * Adds a new condition for joining.
+	 *
+	 * @param   string  $columns  column name
+	 * @return  $this
+	 */
+	public function using($columns)
+	{
+		if ( ! empty($this->_on))
+		{
+			throw new Kohana_Exception('JOIN ... ON ... cannot be combined with JOIN ... USING ...');
+		}
+
+		$columns = func_get_args();
+
+		$this->_using = array_merge($this->_using, $columns);
 
 		return $this;
 	}
@@ -57,11 +85,17 @@ class Database_Query_Builder_Join extends Database_Query_Builder {
 	/**
 	 * Compile the SQL partial for a JOIN statement and return it.
 	 *
-	 * @param   object  Database instance
+	 * @param   mixed  $db  Database instance or name of instance
 	 * @return  string
 	 */
-	public function compile(Database $db)
+	public function compile($db = NULL)
 	{
+		if ( ! is_object($db))
+		{
+			// Get the database instance
+			$db = Database::instance($db);
+		}
+
 		if ($this->_type)
 		{
 			$sql = strtoupper($this->_type).' JOIN';
@@ -72,26 +106,34 @@ class Database_Query_Builder_Join extends Database_Query_Builder {
 		}
 
 		// Quote the table name that is being joined
-		$sql .= ' '.$db->quote_table($this->_table).' ON ';
+		$sql .= ' '.$db->quote_table($this->_table);
 
-		$conditions = array();
-		foreach ($this->_on as $condition)
+		if ( ! empty($this->_using))
 		{
-			// Split the condition
-			list($c1, $op, $c2) = $condition;
-
-			if ($op)
+			// Quote and concat the columns
+			$sql .= ' USING ('.implode(', ', array_map(array($db, 'quote_column'), $this->_using)).')';
+		}
+		else
+		{
+			$conditions = array();
+			foreach ($this->_on as $condition)
 			{
-				// Make the operator uppercase and spaced
-				$op = ' '.strtoupper($op);
+				// Split the condition
+				list($c1, $op, $c2) = $condition;
+
+				if ($op)
+				{
+					// Make the operator uppercase and spaced
+					$op = ' '.strtoupper($op);
+				}
+
+				// Quote each of the columns used for the condition
+				$conditions[] = $db->quote_column($c1).$op.' '.$db->quote_column($c2);
 			}
 
-			// Quote each of the identifiers used for the condition
-			$conditions[] = $db->quote_identifier($c1).$op.' '.$db->quote_identifier($c2);
+			// Concat the conditions "... AND ..."
+			$sql .= ' ON ('.implode(' AND ', $conditions).')';
 		}
-
-		// Concat the conditions "... AND ..."
-		$sql .= '('.implode(' AND ', $conditions).')';
 
 		return $sql;
 	}

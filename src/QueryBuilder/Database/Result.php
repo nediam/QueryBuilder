@@ -1,6 +1,9 @@
-<?php namespace QueryBuilder;
+<?php
+
+ namespace QueryBuilder;
+
 /**
- * Database result wrapper.
+ * Database result wrapper.  See [Results](/database/results) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query/Result
@@ -23,14 +26,19 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	// Return rows as an object or associative array
 	protected $_as_object;
 
+	// Parameters for __construct when using object results
+	protected $_object_params = NULL;
+
 	/**
 	 * Sets the total number of rows and stores the result locally.
 	 *
-	 * @param   mixed   query result
-	 * @param   string  SQL query
+	 * @param   mixed   $result     query result
+	 * @param   string  $sql        SQL query
+	 * @param   mixed   $as_object
+	 * @param   array   $params
 	 * @return  void
 	 */
-	public function __construct($result, $sql, $as_object)
+	public function __construct($result, $sql, $as_object = FALSE, array $params = NULL)
 	{
 		// Store the result locally
 		$this->_result = $result;
@@ -46,6 +54,12 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 
 		// Results as objects or associative arrays
 		$this->_as_object = $as_object;
+
+		if ($params)
+		{
+			// Object constructor params
+			$this->_object_params = $params;
+		}
 	}
 
 	/**
@@ -166,8 +180,8 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *     // Get the "id" value
 	 *     $id = $result->get('id');
 	 *
-	 * @param   string  column to get
-	 * @param   mixed   default value if the column does not exist
+	 * @param   string  $name     column to get
+	 * @param   mixed   $default  default value if the column does not exist
 	 * @return  mixed
 	 */
 	public function get($name, $default = NULL)
@@ -208,6 +222,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *         // Row 10 exists
 	 *     }
 	 *
+	 * @param   int     $offset
 	 * @return  boolean
 	 */
 	public function offsetExists($offset)
@@ -235,12 +250,14 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * [!!] You cannot modify a database result.
 	 *
+	 * @param   int     $offset
+	 * @param   mixed   $value
 	 * @return  void
-	 * @throws  Exception
+	 * @throws  \Exception
 	 */
 	final public function offsetSet($offset, $value)
 	{
-		throw new Exception('Database results are read-only');
+		throw new \Exception('Database results are read-only');
 	}
 
 	/**
@@ -249,11 +266,11 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 * [!!] You cannot modify a database result.
 	 *
 	 * @return  void
-	 * @throws  Exception
+	 * @throws  \Exception
 	 */
 	final public function offsetUnset($offset)
 	{
-		throw new Exception('Database results are read-only');
+		throw new \Exception('Database results are read-only');
 	}
 
 	/**

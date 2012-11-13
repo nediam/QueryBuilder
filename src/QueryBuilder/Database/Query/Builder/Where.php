@@ -1,6 +1,9 @@
-<?php namespace QueryBuilder;
+<?php
+
+namespace QueryBuilder;
+
 /**
- * Database query builder for WHERE statements.
+ * Database query builder for WHERE statements. See [Query Builder](/database/query/builder) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query
@@ -22,9 +25,9 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	/**
 	 * Alias of and_where()
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  logic operator
-	 * @param   mixed   column value
+	 * @param   mixed   $column  column name or array($column, $alias) or object
+	 * @param   string  $op      logic operator
+	 * @param   mixed   $value   column value
 	 * @return  $this
 	 */
 	public function where($column, $op, $value)
@@ -35,9 +38,9 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	/**
 	 * Creates a new "AND WHERE" condition for the query.
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  logic operator
-	 * @param   mixed   column value
+	 * @param   mixed   $column  column name or array($column, $alias) or object
+	 * @param   string  $op      logic operator
+	 * @param   mixed   $value   column value
 	 * @return  $this
 	 */
 	public function and_where($column, $op, $value)
@@ -50,9 +53,9 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	/**
 	 * Creates a new "OR WHERE" condition for the query.
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  logic operator
-	 * @param   mixed   column value
+	 * @param   mixed   $column  column name or array($column, $alias) or object
+	 * @param   string  $op      logic operator
+	 * @param   mixed   $value   column value
 	 * @return  $this
 	 */
 	public function or_where($column, $op, $value)
@@ -97,7 +100,7 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	}
 
 	/**
-	 * Closes an open "AND WHERE (...)" grouping.
+	 * Closes an open "WHERE (...)" grouping.
 	 *
 	 * @return  $this
 	 */
@@ -107,7 +110,27 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	}
 
 	/**
-	 * Closes an open "AND WHERE (...)" grouping.
+	 * Closes an open "WHERE (...)" grouping or removes the grouping when it is
+	 * empty.
+	 *
+	 * @return  $this
+	 */
+	public function where_close_empty()
+	{
+		$group = end($this->_where);
+
+		if ($group AND reset($group) === '(')
+		{
+			array_pop($this->_where);
+
+			return $this;
+		}
+
+		return $this->where_close();
+	}
+
+	/**
+	 * Closes an open "WHERE (...)" grouping.
 	 *
 	 * @return  $this
 	 */
@@ -119,7 +142,7 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	}
 
 	/**
-	 * Closes an open "OR WHERE (...)" grouping.
+	 * Closes an open "WHERE (...)" grouping.
 	 *
 	 * @return  $this
 	 */
@@ -131,9 +154,9 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	}
 
 	/**
-	 * Creates a new "AND MATCH" condition for the query.
+	 * Creates a new "MATCH" condition for the query.
 	 *
-	 * @param   mixed   phrase
+	 * @param   mixed   $phrase
 	 * @return  $this
 	 */
 	public function match($phrase)
@@ -146,8 +169,8 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	/**
 	 * Applies sorting with "ORDER BY ..."
 	 *
-	 * @param   mixed   column name or array($column, $alias) or object
-	 * @param   string  direction of sorting
+	 * @param   mixed   $column     column name or array($column, $alias) or object
+	 * @param   string  $direction  direction of sorting
 	 * @return  $this
 	 */
 	public function order_by($column, $direction = NULL)
@@ -160,12 +183,12 @@ abstract class Database_Query_Builder_Where extends Database_Query_Builder {
 	/**
 	 * Return up to "LIMIT ..." results
 	 *
-	 * @param   integer  maximum results to return
+	 * @param   integer  $number  maximum results to return or NULL to reset
 	 * @return  $this
 	 */
 	public function limit($number)
 	{
-		$this->_limit = (int) $number;
+		$this->_limit = $number;
 
 		return $this;
 	}

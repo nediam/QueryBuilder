@@ -13,7 +13,7 @@ class Database_Pdo extends Database {
 	// PDO uses no quoting for identifiers
 	protected $_identifier = '`';
 
-	protected function __construct($name, array $config)
+	public function __construct($name, array $config)
 	{
 		parent::__construct($name, $config);
 
@@ -30,7 +30,7 @@ class Database_Pdo extends Database {
 		{
 			return TRUE;
 		}
-		
+
 		if ($this->_connection)
 			return;
 
@@ -46,33 +46,70 @@ class Database_Pdo extends Database {
 		unset($this->_config['connection']);
 
 		// Force PDO to use exceptions for all errors
-		$attrs = array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION);
+		$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
 
 		if ( ! empty($persistent))
 		{
 			// Make the connection persistent
-			$attrs[\PDO::ATTR_PERSISTENT] = TRUE;
+			$options[\PDO::ATTR_PERSISTENT] = TRUE;
 		}
 
 		try
 		{
 			// Create a new PDO connection
-			$this->_connection = new \PDO($dsn, $username, $password, $attrs);
+			$this->_connection = new PDO($dsn, $username, $password, $options);
 		}
 		catch (PDOException $e)
 		{
-			throw new Database_Exception(':error', array(
-					':error' => $e->getMessage(),
-				),
-				$e->getCode(),
-				$e);
+			throw new Database_Exception(':error',
+				array(':error' => $e->getMessage()),
+				$e->getCode());
 		}
+	}
 
-		if ( ! empty($this->_config['charset']))
-		{
-			// Set the character set
-			$this->set_charset($this->_config['charset']);
-		}
+	/**
+	 * Create or redefine a SQL aggregate function.
+	 *
+	 * [!!] Works only with SQLite
+	 *
+	 * @link http://php.net/manual/function.pdo-sqlitecreateaggregate
+	 *
+	 * @param   string      $name       Name of the SQL function to be created or redefined
+	 * @param   callback    $step       Called for each row of a result set
+	 * @param   callback    $final      Called after all rows of a result set have been processed
+	 * @param   integer     $arguments  Number of arguments that the SQL function takes
+	 *
+	 * @return  boolean
+	 */
+	public function create_aggregate($name, $step, $final, $arguments = -1)
+	{
+		$this->_connection or $this->connect();
+
+		return $this->_connection->sqliteCreateAggregate(
+			$name, $step, $final, $arguments
+		);
+	}
+
+	/**
+	 * Create or redefine a SQL function.
+	 *
+	 * [!!] Works only with SQLite
+	 *
+	 * @link http://php.net/manual/function.pdo-sqlitecreatefunction
+	 *
+	 * @param   string      $name       Name of the SQL function to be created or redefined
+	 * @param   callback    $callback   Callback which implements the SQL function
+	 * @param   integer     $arguments  Number of arguments that the SQL function takes
+	 *
+	 * @return  boolean
+	 */
+	public function create_function($name, $callback, $arguments = -1)
+	{
+		$this->_connection or $this->connect();
+
+		return $this->_connection->sqliteCreateFunction(
+			$name, $callback, $arguments
+		);
 	}
 
 	public function disconnect()
@@ -80,12 +117,7 @@ class Database_Pdo extends Database {
 		// Destroy the PDO object
 		$this->_connection = NULL;
 
-		return TRUE;
-	}
-	
-	public function set_connection($connection)
-	{
-		$this->_connection = $connection;
+		return parent::disconnect();
 	}
 
 	public function set_charset($charset)
@@ -94,25 +126,25 @@ class Database_Pdo extends Database {
 		{
 			return TRUE;
 		}
-		
+
 		// Make sure the database is connected
 		$this->_connection or $this->connect();
 
-		// Execute a raw SET NAMES query
+		// This SQL-92 syntax is not supported by all drivers
 		$this->_connection->exec('SET NAMES '.$this->quote($charset));
 	}
 
-	public function query($type, $sql, $as_object)
+	public function query($type, $sql, $as_object = FALSE, array $params = NULL)
 	{
 		if ( ! $this->_config['use_db'])
 		{
 			return TRUE;
 		}
-		
+
 		// Make sure the database is connected
 		$this->_connection or $this->connect();
 
-		if ( ! empty($this->_config['profiling']))
+		if (Kohana::$profiling)
 		{
 			// Benchmark this query for the current instance
 			$benchmark = Profiler::start("Database ({$this->_instance})", $sql);
@@ -131,12 +163,12 @@ class Database_Pdo extends Database {
 			}
 
 			// Convert the exception in a database exception
-			throw new Database_Exception(':error [ :query ]', array(
+			throw new Database_Exception(':error [ :query ]',
+				array(
 					':error' => $e->getMessage(),
 					':query' => $sql
 				),
-				$e->getCode(),
-				$e);
+				$e->getCode());
 		}
 
 		if (isset($benchmark))
@@ -156,7 +188,7 @@ class Database_Pdo extends Database {
 			}
 			elseif (is_string($as_object))
 			{
-				$result->setFetchMode(\PDO::FETCH_CLASS, $as_object);
+				$result->setFetchMode(\PDO::FETCH_CLASS, $as_object, $params);
 			}
 			else
 			{
@@ -166,7 +198,7 @@ class Database_Pdo extends Database {
 			$result = $result->fetchAll();
 
 			// Return an iterator of results
-			return new Database_Result_Cached($result, $sql, $as_object);
+			return new Database_Result_Cached($result, $sql, $as_object, $params);
 		}
 		elseif ($type === Database::INSERT)
 		{
@@ -183,13 +215,37 @@ class Database_Pdo extends Database {
 		}
 	}
 
+	public function begin($mode = NULL)
+	{
+		// Make sure the database is connected
+		$this->_connection or $this->connect();
+
+		return $this->_connection->beginTransaction();
+	}
+
+	public function commit()
+	{
+		// Make sure the database is connected
+		$this->_connection or $this->connect();
+
+		return $this->_connection->commit();
+	}
+
+	public function rollback()
+	{
+		// Make sure the database is connected
+		$this->_connection or $this->connect();
+
+		return $this->_connection->rollBack();
+	}
+
 	public function list_tables($like = NULL)
 	{
 		throw new \Exception('Database method :method is not supported by :class',
 			array(':method' => __FUNCTION__, ':class' => __CLASS__));
 	}
 
-	public function list_columns($table, $like = NULL)
+	public function list_columns($table, $like = NULL, $add_prefix = TRUE)
 	{
 		throw new \Exception('Database method :method is not supported by :class',
 			array(':method' => __FUNCTION__, ':class' => __CLASS__));
@@ -201,7 +257,7 @@ class Database_Pdo extends Database {
 		{
 			return '"'.addslashes($value).'"';
 		}
-		
+
 		// Make sure the database is connected
 		$this->_connection or $this->connect();
 

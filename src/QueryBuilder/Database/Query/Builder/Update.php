@@ -1,6 +1,6 @@
 <?php namespace QueryBuilder;
 /**
- * Database query builder for UPDATE statements.
+ * Database query builder for UPDATE statements. See [Query Builder](/database/query/builder) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query
@@ -19,7 +19,7 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 	/**
 	 * Set the table for a update.
 	 *
-	 * @param   mixed  table name or array($table, $alias) or object
+	 * @param   mixed  $table  table name or array($table, $alias) or object
 	 * @return  void
 	 */
 	public function __construct($table = NULL)
@@ -37,7 +37,7 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 	/**
 	 * Sets the table to update.
 	 *
-	 * @param   mixed  table name or array($table, $alias) or object
+	 * @param   mixed  $table  table name or array($table, $alias) or object
 	 * @return  $this
 	 */
 	public function table($table)
@@ -50,7 +50,7 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 	/**
 	 * Set the values to update with an associative array.
 	 *
-	 * @param   array   associative (column => value) list
+	 * @param   array   $pairs  associative (column => value) list
 	 * @return  $this
 	 */
 	public function set(array $pairs)
@@ -66,8 +66,8 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 	/**
 	 * Set the value of a single column.
 	 *
-	 * @param   mixed  table name or array($table, $alias) or object
-	 * @param   mixed  column value
+	 * @param   mixed  $column  table name or array($table, $alias) or object
+	 * @param   mixed  $value   column value
 	 * @return  $this
 	 */
 	public function value($column, $value)
@@ -80,11 +80,17 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 	/**
 	 * Compile the SQL query and return it.
 	 *
-	 * @param   object  Database instance
+	 * @param   mixed  $db  Database instance or name of instance
 	 * @return  string
 	 */
-	public function compile(Database $db)
+	public function compile($db = NULL)
 	{
+		if ( ! is_object($db))
+		{
+			// Get the database instance
+			$db = Database::instance($db);
+		}
+
 		// Start an update query
 		$query = 'UPDATE '.$db->quote_table($this->_table);
 
@@ -97,13 +103,21 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 			$query .= ' WHERE '.$this->_compile_conditions($db, $this->_where);
 		}
 
+		if ( ! empty($this->_order_by))
+		{
+			// Add sorting
+			$query .= ' '.$this->_compile_order_by($db, $this->_order_by);
+		}
+
 		if ($this->_limit !== NULL)
 		{
 			// Add limiting
 			$query .= ' LIMIT '.$this->_limit;
 		}
 
-		return $query;
+		$this->_sql = $query;
+
+		return parent::compile($db);
 	}
 
 	public function reset()
@@ -116,6 +130,8 @@ class Database_Query_Builder_Update extends Database_Query_Builder_Where {
 		$this->_limit = NULL;
 
 		$this->_parameters = array();
+
+		$this->_sql = NULL;
 
 		return $this;
 	}

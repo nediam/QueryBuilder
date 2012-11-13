@@ -1,6 +1,9 @@
-<?php namespace QueryBuilder;
+<?php
+
+namespace QueryBuilder;
+
 /**
- * Database query builder.
+ * Database query builder. See [Query Builder](/database/query/builder) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query
@@ -13,8 +16,8 @@ abstract class Database_Query_Builder extends Database_Query {
 	/**
 	 * Compiles an array of JOIN statements into an SQL partial.
 	 *
-	 * @param   object  Database instance
-	 * @param   array   join statements
+	 * @param   object  $db     Database instance
+	 * @param   array   $joins  join statements
 	 * @return  string
 	 */
 	protected function _compile_join(Database $db, array $joins)
@@ -34,8 +37,8 @@ abstract class Database_Query_Builder extends Database_Query {
 	 * Compiles an array of conditions into an SQL partial. Used for WHERE
 	 * and HAVING.
 	 *
-	 * @param   object  Database instance
-	 * @param   array   condition statements
+	 * @param   object  $db          Database instance
+	 * @param   array   $conditions  condition statements
 	 * @return  string
 	 */
 	protected function _compile_conditions(Database $db, array $conditions)
@@ -95,20 +98,20 @@ abstract class Database_Query_Builder extends Database_Query {
 						// BETWEEN always has exactly two arguments
 						list($min, $max) = $value;
 
-						if (is_string($min) AND array_key_exists($min, $this->_parameters))
+						if ((is_string($min) AND array_key_exists($min, $this->_parameters)) === FALSE)
 						{
-							// Set the parameter as the minimum
-							$min = $this->_parameters[$min];
+							// Quote the value, it is not a parameter
+							$min = $db->quote($min);
 						}
 
-						if (is_string($max) AND array_key_exists($max, $this->_parameters))
+						if ((is_string($max) AND array_key_exists($max, $this->_parameters)) === FALSE)
 						{
-							// Set the parameter as the maximum
-							$max = $this->_parameters[$max];
+							// Quote the value, it is not a parameter
+							$max = $db->quote($max);
 						}
 
 						// Quote the min and max value
-						$value = $db->quote($min).' AND '.$db->quote($max);
+						$value = $min.' AND '.$max;
 					}
 					elseif ($op === 'MATCH')
 					{
@@ -116,20 +119,28 @@ abstract class Database_Query_Builder extends Database_Query {
 						$value = strtr($value, $this->_parameters);
 						$value = 'MATCH(\''.$value.'\')';
 					}
-					else
+					elseif ((is_string($value) AND array_key_exists($value, $this->_parameters)) === FALSE)
 					{
-						if (is_string($value) AND array_key_exists($value, $this->_parameters))
-						{
-							// Set the parameter as the value
-							$value = $this->_parameters[$value];
-						}
-
-						// Quote the entire value normally
+						// Quote the value, it is not a parameter
 						$value = $db->quote($value);
 					}
 
+					if ($column)
+					{
+						if (is_array($column))
+						{
+							// Use the column name
+							$column = $db->quote_identifier(reset($column));
+						}
+						else
+						{
+							// Apply proper quoting to the column
+							$column = $db->quote_column($column);
+						}
+					}
+
 					// Append the statement to the query
-					$sql .= $db->quote_identifier($column).' '.$op.' '.$value;
+					$sql .= trim($column.' '.$op.' '.$value);
 				}
 
 				$last_condition = $condition;
@@ -142,8 +153,8 @@ abstract class Database_Query_Builder extends Database_Query {
 	/**
 	 * Compiles an array of set values into an SQL partial. Used for UPDATE.
 	 *
-	 * @param   object  Database instance
-	 * @param   array   updated values
+	 * @param   object  $db      Database instance
+	 * @param   array   $values  updated values
 	 * @return  string
 	 */
 	protected function _compile_set(Database $db, array $values)
@@ -155,25 +166,55 @@ abstract class Database_Query_Builder extends Database_Query {
 			list ($column, $value) = $group;
 
 			// Quote the column name
-			$column = $db->quote_identifier($column);
+			$column = $db->quote_column($column);
 
-			if (is_string($value) AND array_key_exists($value, $this->_parameters))
+			if ((is_string($value) AND array_key_exists($value, $this->_parameters)) === FALSE)
 			{
-				// Use the parameter value
-				$value = $this->_parameters[$value];
+				// Quote the value, it is not a parameter
+				$value = $db->quote($value);
 			}
 
-			$set[$column] = $column.' = '.$db->quote($value);
+			$set[$column] = $column.' = '.$value;
 		}
 
 		return implode(', ', $set);
 	}
 
 	/**
+	 * Compiles an array of GROUP BY columns into an SQL partial.
+	 *
+	 * @param   object  $db       Database instance
+	 * @param   array   $columns
+	 * @return  string
+	 */
+	protected function _compile_group_by(Database $db, array $columns)
+	{
+		$group = array();
+
+		foreach ($columns as $column)
+		{
+			if (is_array($column))
+			{
+				// Use the column alias
+				$column = $db->quote_identifier(end($column));
+			}
+			else
+			{
+				// Apply proper quoting to the column
+				$column = $db->quote_column($column);
+			}
+
+			$group[] = $column;
+		}
+
+		return 'GROUP BY '.implode(', ', $group);
+	}
+
+	/**
 	 * Compiles an array of ORDER BY statements into an SQL partial.
 	 *
-	 * @param   object  Database instance
-	 * @param   array   sorting columns
+	 * @param   object  $db       Database instance
+	 * @param   array   $columns  sorting columns
 	 * @return  string
 	 */
 	protected function _compile_order_by(Database $db, array $columns)
@@ -183,13 +224,24 @@ abstract class Database_Query_Builder extends Database_Query {
 		{
 			list ($column, $direction) = $group;
 
-			if ( ! empty($direction))
+			if (is_array($column))
+			{
+				// Use the column alias
+				$column = $db->quote_identifier(end($column));
+			}
+			else
+			{
+				// Apply proper quoting to the column
+				$column = $db->quote_column($column);
+			}
+
+			if ($direction)
 			{
 				// Make the direction uppercase
 				$direction = ' '.strtoupper($direction);
 			}
 
-			$sort[] = $db->quote_identifier($column).$direction;
+			$sort[] = $column.$direction;
 		}
 
 		return 'ORDER BY '.implode(', ', $sort);

@@ -1,6 +1,9 @@
-<?php namespace QueryBuilder;
+<?php
+
+namespace QueryBuilder;
+
 /**
- * Database query builder for INSERT statements.
+ * Database query builder for INSERT statements. See [Query Builder](/database/query/builder) for usage and examples.
  *
  * @package    Kohana/Database
  * @category   Query
@@ -22,8 +25,8 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Set the table and columns for an insert.
 	 *
-	 * @param   mixed  table name or array($table, $alias) or object
-	 * @param   array  column names
+	 * @param   mixed  $table    table name or array($table, $alias) or object
+	 * @param   array  $columns  column names
 	 * @return  void
 	 */
 	public function __construct($table = NULL, array $columns = NULL)
@@ -47,7 +50,7 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Sets the table to insert into.
 	 *
-	 * @param   mixed  table name or array($table, $alias) or object
+	 * @param   mixed  $table  table name or array($table, $alias) or object
 	 * @return  $this
 	 */
 	public function table($table)
@@ -60,7 +63,7 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Set the columns that will be inserted.
 	 *
-	 * @param   array  column names
+	 * @param   array  $columns  column names
 	 * @return  $this
 	 */
 	public function columns(array $columns)
@@ -73,7 +76,7 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Adds or overwrites values. Multiple value sets can be added.
 	 *
-	 * @param   array   values list
+	 * @param   array   $values  values list
 	 * @param   ...
 	 * @return  $this
 	 */
@@ -81,7 +84,7 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	{
 		if ( ! is_array($this->_values))
 		{
-			throw new Exception('INSERT INTO ... SELECT statements cannot be combined with INSERT INTO ... VALUES');
+			throw new \Exception('INSERT INTO ... SELECT statements cannot be combined with INSERT INTO ... VALUES');
 		}
 
 		// Get all of the passed values
@@ -114,14 +117,14 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Use a sub-query to for the inserted values.
 	 *
-	 * @param   object  Database_Query of SELECT type
+	 * @param   object  $query  Database_Query of SELECT type
 	 * @return  $this
 	 */
 	public function select(Database_Query $query)
 	{
 		if ($query->type() !== Database::SELECT)
 		{
-			throw new Exception('Only SELECT queries can be combined with INSERT queries');
+			throw new \Exception('Only SELECT queries can be combined with INSERT queries');
 		}
 
 		$this->_values = $query;
@@ -132,16 +135,22 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 	/**
 	 * Compile the SQL query and return it.
 	 *
-	 * @param   object  Database instance
+	 * @param   mixed  $db  Database instance or name of instance
 	 * @return  string
 	 */
-	public function compile(Database $db)
+	public function compile($db = NULL)
 	{
+		if ( ! is_object($db))
+		{
+			// Get the database instance
+			$db = Database::instance($db);
+		}
+
 		// Start an insertion query
 		$query = 'INSERT INTO '.$db->quote_table($this->_table);
 
 		// Add the column names
-		$query .= ' ('.implode(', ', array_map(array($db, 'quote_identifier'), $this->_columns)).') ';
+		$query .= ' ('.implode(', ', array_map(array($db, 'quote_column'), $this->_columns)).') ';
 
 		if (is_array($this->_values))
 		{
@@ -151,16 +160,16 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 			$groups = array();
 			foreach ($this->_values as $group)
 			{
-				foreach ($group as $i => $value)
+				foreach ($group as $offset => $value)
 				{
-					if (is_string($value) AND isset($this->_parameters[$value]))
+					if ((is_string($value) AND array_key_exists($value, $this->_parameters)) === FALSE)
 					{
-						// Use the parameter value
-						$group[$i] = $this->_parameters[$value];
+						// Quote the value, it is not a parameter
+						$group[$offset] = $db->quote($value);
 					}
 				}
 
-				$groups[] = '('.implode(', ', array_map($quote, $group)).')';
+				$groups[] = '('.implode(', ', $group).')';
 			}
 
 			// Add the values
@@ -172,7 +181,9 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 			$query .= (string) $this->_values;
 		}
 
-		return $query;
+		$this->_sql = $query;
+
+		return parent::compile($db);;
 	}
 
 	public function reset()
@@ -183,6 +194,8 @@ class Database_Query_Builder_Insert extends Database_Query_Builder {
 		$this->_values  = array();
 
 		$this->_parameters = array();
+
+		$this->_sql = NULL;
 
 		return $this;
 	}
